@@ -59,7 +59,7 @@ Here's an example JSON code for update information:
       "latestVersion": "2.0.0",
       "releaseDate": "2023-12-01",
       "downloadUrl": "Url for the file to be downloaded",
-      "fileName": "ILSpy_binaries_8.2.0.7535-x64.zip",
+      "fileName": "FileName",
       "releaseNotes": "Release notes for version 2.0.0..."
     }
   ]
