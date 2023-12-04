@@ -48,6 +48,24 @@ To build and run the DieMain updater, follow these steps:
 - GDI+ is utilized for graphics-related tasks.
 - The RichEdit control is employed for displaying dynamic text.
 
+- ## Example Update JSON
+
+Here's an example JSON code for update information:
+
+```json
+{
+  "updates": [
+    {
+      "latestVersion": "2.0.0",
+      "releaseDate": "2023-12-01",
+      "downloadUrl": "Url for the file to be downloaded",
+      "fileName": "ILSpy_binaries_8.2.0.7535-x64.zip",
+      "releaseNotes": "Release notes for version 2.0.0..."
+    }
+  ]
+}
+
+
 # Notes
 
 - The source includes comments for better understanding.
