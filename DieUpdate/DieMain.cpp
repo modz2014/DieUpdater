@@ -10,9 +10,12 @@
 #include <Shlwapi.h>
 #include <shellapi.h>
 #include <iostream>
+#include <dwmapi.h>
 
 #pragma comment(lib, "gdiplus.lib")
 #pragma comment(lib, "Shlwapi.lib")
+#pragma comment(lib, "dwmapi.lib")
+
 // Global Variables:
 HINSTANCE hInst;                                // current instance
 WCHAR szTitle[] = L"UPDATER";                  // The title bar text
@@ -24,13 +27,13 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
+
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_opt_ HINSTANCE hPrevInstance,
     _In_ LPWSTR    lpCmdLine,
     _In_ int       nCmdShow)
 {
     //EnableDarkModeForApp();
-    COLORREF g_TitleBarColor = RGB(0, 0, 0); // Black color for the title bar
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
@@ -54,10 +57,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             DispatchMessage(&msg);
         }
     }
+   
 
     return (int)msg.wParam;
 }
-
 //  FUNCTION: MyRegisterClass()
 //
 //  PURPOSE: Registers the window class.
@@ -105,8 +108,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     UpdateWindow(hWnd);
     return TRUE;
 }
-
-
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -117,7 +118,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //  WM_DESTROY  - post a quit message and return
 //
 //
-
 void UpdateRichTextBoxTheme(HWND hRichTextBox, bool darkMode) {
     if (darkMode) {
         // Update RichTextBox background color for dark mode
@@ -142,6 +142,7 @@ void UpdateRichTextBoxTheme(HWND hRichTextBox, bool darkMode) {
         SendMessage(hRichTextBox, EM_SETCHARFORMAT, SCF_ALL, (LPARAM)&cf);
     }
 }
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 { 
     static bool isChecked = false;  // Declare isChecked as a static variable
@@ -167,7 +168,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         int wmId = LOWORD(wParam);
         switch (wmId)
         {
-       
         case IDM_EXIT:
             DestroyWindow(hWnd);
             break;
@@ -188,20 +188,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 else {
                     OutputDebugString(L"Failed to create RichEdit control.\n");
                 }
-              
+
                 // Show the RichEdit control
                 ToggleRichEditControl(hWnd, true);
                 if (IsDarkMode()) {
                     SendMessage(hRichTextBox, EM_SETBKGNDCOLOR, 0, RGB(30, 30, 30)); // Dark background color
                 }
                 else {
+                    #pragma warning(suppress : 6387)
                     SendMessage(hRichTextBox, EM_SETBKGNDCOLOR, 0, RGB(255, 255, 255)); // Light background color
                 }
+
                 int newWidth = 429;  // Set your desired width
                 int newHeight = 267; // Set your desired height
                 SetWindowPos(hWnd, NULL, 0, 0, newWidth, newHeight, SWP_NOMOVE | SWP_NOZORDER);
-            
-            
             }
             else {
                 OutputDebugString(L"Checkbox is unchecked.\n");
@@ -214,10 +214,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 int originalHeight = 150; // Set your original height
                 SetWindowPos(hWnd, NULL, 0, 0, originalWidth, originalHeight, SWP_NOMOVE | SWP_NOZORDER);
             }
-         
-     
-        break;
-        
+        break; 
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
@@ -225,10 +222,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     break;
     case WM_SETTINGCHANGE:
         if (lParam && _wcsicmp(L"ImmersiveColorSet", (LPCWSTR)lParam) == 0) {
-           
+            BOOL bDark = IsDarkMode(); // Your function to check if dark mode is enabled
+            const BOOL bEnable = bDark ? TRUE : FALSE;
+            DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &bEnable, sizeof(bEnable));
             // The system theme has changed, so update your application's theme
             if (IsDarkMode()) {
-                HBRUSH hBrushDark = CreateSolidBrush(RGB(30, 30, 30, 255)); // Dark background color
+                HBRUSH hBrushDark = CreateSolidBrush(RGB(30, 30, 30)); // Dark background color
                 SetClassLongPtr(hWnd, GCLP_HBRBACKGROUND, (LONG_PTR)hBrushDark);
                 // Set text color to white
                 SetTextColor(GetDC(hWnd), RGB(255, 255, 255));
@@ -241,7 +240,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 // Set text color to black
                 SetTextColor(GetDC(hWnd), RGB(0, 0, 0));
                 g_pBitmap = Gdiplus::Bitmap::FromResource(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_MY_LIGHT_IMAGE));
-
             }
             if (isChecked) {
                 if (IsDarkMode()) {
@@ -268,6 +266,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
             }
             UpdateRichTextBoxTheme(hRichTextBox, IsDarkMode());
+            InvalidateRect(hProgressBar, NULL, TRUE);
             SetProgressBarColor(hProgressBar); // Update the progress bar color
             InvalidateRect(hRichTextBox, NULL, TRUE);
             InvalidateRect(hWnd, NULL, TRUE); // Redraw the window with the new theme colors
@@ -296,8 +295,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         HWND hStatic = (HWND)lParam;
         if (IsDarkMode()) {
             SetTextColor(hdcStatic, RGB(255, 255, 255)); // White text for dark mode
-            SetBkColor(hdcStatic, RGB(30, 30, 30, 255)); // Black background for dark mode
-            static HBRUSH hBrushDark = CreateSolidBrush(RGB(30, 30, 30, 255));
+            SetBkColor(hdcStatic, RGB(30, 30, 30)); // Black background for dark mode
+            static HBRUSH hBrushDark = CreateSolidBrush(RGB(30, 30, 30));
             return (INT_PTR)hBrushDark;
         }
         else {
@@ -330,7 +329,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         GetClientRect(hWnd, &rect);
         HBRUSH hBrush;
         if (IsDarkMode()) {
-            hBrush = CreateSolidBrush(RGB(30, 30, 30, 255)); // Dark background
+            hBrush = CreateSolidBrush(RGB(30, 30, 30,)); // Dark background
         }
         else {
             hBrush = CreateSolidBrush(RGB(255, 255, 255)); // Light background
@@ -495,8 +494,11 @@ bool ExtractZip(const std::wstring& zipPath, HWND hwndRichEdit) {
     }
 
     // Wait for the PowerShell process to finish
-    WaitForSingleObject(ShExecInfo.hProcess, INFINITE);
+    if (ShExecInfo.hProcess != NULL) {
+        WaitForSingleObject(ShExecInfo.hProcess, INFINITE);
+    }
     CloseHandle(ShExecInfo.hProcess);
+
 
     bool extractionSucceeded = true; // You need to determine this based on the result of ShellExecuteEx
 
