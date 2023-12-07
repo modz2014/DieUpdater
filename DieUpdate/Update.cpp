@@ -31,7 +31,7 @@ bool CheckForUpdate(HWND hwnd, const std::string& currentVersion) {
 		return false;
 	}
 
-	const std::string serverUrl = "Update to your Url for json ";
+	const std::string serverUrl = "http://192.168.1.9:8000/updates";
 	hConnect = InternetOpenUrlA(hInternet, serverUrl.c_str(), NULL, 0, INTERNET_FLAG_RELOAD, 0);
 	if (hConnect == NULL) {
 		DWORD error = GetLastError();
@@ -142,28 +142,98 @@ void ShowReleaseNotesDialog(HWND hwnd, const std::string& releaseNotes) {
  * @return True if the update is downloaded successfully, false otherwise.
  */
 bool DownloadUpdate(HWND hwnd, const std::wstring& updateUrl, const std::wstring& destination) {
-	// Display a message or perform any actions indicating the start of the update download
-	std::wstring updateStartText = L"Downloading update...\n";
-	UpdateRichEdit(updateStartText.c_str());
-
-	// Download the update file
-	if (DownloadFile(updateUrl, destination, hwnd)) {
-		// Successful download, perform any additional update steps
-		// For example, you can call a function to extract and apply the update
-		std::wstring updateCompleteText = L"Update download complete.\n";
-		UpdateRichEdit(updateCompleteText.c_str());
-
-		// Now you can perform further actions, such as extracting and applying the update
-		// ExtractAndApplyUpdate(destination);
-
-		return true;
-	}
-	else {
-		// Handle download failure
-		std::wstring updateErrorText = L"Failed to download the update.\n";
-		UpdateRichEdit(updateErrorText.c_str());
+	HINTERNET hInternet = InternetOpen(L"DieMain", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+	if (hInternet == NULL) {
+		// Handle the error (log, display, etc.)
 		return false;
 	}
+
+	HINTERNET hConnect = InternetOpenUrl(hInternet, updateUrl.c_str(), NULL, 0, 0, 0);
+	if (hConnect == NULL) {
+		InternetCloseHandle(hInternet);
+		// Handle the error (log, display, etc.)
+		return false;
+	}
+	// Get the file size
+	DWORD fileSize = 0;
+	DWORD fileSizeLength = sizeof(fileSize);
+	if (!HttpQueryInfo(hConnect, HTTP_QUERY_CONTENT_LENGTH | HTTP_QUERY_FLAG_NUMBER, &fileSize, &fileSizeLength, NULL)) {
+		// If HttpQueryInfo fails, set fileSize to a default value or handle the error
+		fileSize = 1024 * 1024; // Default to 1 MB if size is unknown
+	}
+
+	HANDLE hFile = CreateFile(destination.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hFile == INVALID_HANDLE_VALUE) {
+		InternetCloseHandle(hConnect);
+		InternetCloseHandle(hInternet);
+		// Handle the error (log, display, etc.)
+		return false;
+	}
+
+	constexpr DWORD BUFFER_SIZE = 4096;
+	BYTE buffer[BUFFER_SIZE];
+	DWORD bytesRead, bytesWritten, totalBytesWritten = 0;
+	int percentage = 0; // Initialize the percentage variable outside the loop
+
+	while (InternetReadFile(hConnect, buffer, BUFFER_SIZE, &bytesRead) && bytesRead > 0) {
+		if (!WriteFile(hFile, buffer, bytesRead, &bytesWritten, NULL) || bytesRead != bytesWritten) {
+			CloseHandle(hFile);
+			InternetCloseHandle(hConnect);
+			InternetCloseHandle(hInternet);
+			// Handle the error (log, display, etc.)
+			return false;
+		}
+
+		totalBytesWritten += bytesRead;
+		int newPercentage = static_cast<int>((static_cast<double>(totalBytesWritten) / fileSize) * 100);
+		newPercentage = max(0, min(newPercentage, 100)); // Clamp the value between 0 and 100
+
+		if (newPercentage != percentage) { // Only update if the percentage has changed
+			percentage = newPercentage;
+			UpdateProgressBar(hwnd, percentage);
+		}
+
+		// Assuming 'jsonString' contains the JSON data as a std::string
+		std::string jsonString = R"({"url": "http://192.168.1.9:8000/updates"})"; // Replace with your actual JSON string
+
+		// Parse the JSON response
+		Json::Value root;
+		Json::Reader reader;
+		if (!reader.parse(jsonString, root)) {
+			// Handle JSON parsing error
+			std::cerr << "Failed to parse JSON response." << std::endl;
+			return false;
+		}
+
+		// Extract the URL from the JSON object
+		std::string downloadUrl = root["url"].asString();
+
+		// Convert std::string to std::wstring
+		std::wstring downloadUrlW(downloadUrl.begin(), downloadUrl.end());
+
+		// Set the RichEdit control with the download URL only, without the progress
+		std::wstring urlText = L"Download URL: " + downloadUrlW + L"\n";
+		SendMessage(GetDlgItem(hwnd, IDC_RICHTEXTBOX), WM_SETTEXT, 0, reinterpret_cast<LPARAM>(urlText.c_str()));
+	}
+
+	// If extraction failed, close handles and return false
+	CloseHandle(hFile);
+	InternetCloseHandle(hConnect);
+	InternetCloseHandle(hInternet);
+
+	bool extractionResult = ExtractZip(destination, hwnd);
+
+	// Check if extraction was successful
+	if (extractionResult) {
+		// Check if the download was successful
+		if (totalBytesWritten > 0) {
+			// Update the RichEdit control with the download success message
+			SendMessage(GetDlgItem(hwnd, IDC_RICHTEXTBOX), EM_SETSEL, -1, -1); // Set selection to the end
+			SendMessage(GetDlgItem(hwnd, IDC_RICHTEXTBOX), EM_REPLACESEL, 0, reinterpret_cast<LPARAM>(L"Download completed.\n"));
+		}
+		return extractionResult; // Return the result of extraction
+	}
+	return false;
 }
 /**
  * @brief Thread function to check for updates and handle the update process.
