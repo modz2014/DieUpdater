@@ -31,7 +31,7 @@ bool CheckForUpdate(HWND hwnd, const std::string& currentVersion) {
 		return false;
 	}
 
-	const std::string serverUrl = "http://192.168.1.9:8000/updates";
+	const std::string serverUrl = "Update URL ";
 	hConnect = InternetOpenUrlA(hInternet, serverUrl.c_str(), NULL, 0, INTERNET_FLAG_RELOAD, 0);
 	if (hConnect == NULL) {
 		DWORD error = GetLastError();
@@ -194,7 +194,7 @@ bool DownloadUpdate(HWND hwnd, const std::wstring& updateUrl, const std::wstring
 		}
 
 		// Assuming 'jsonString' contains the JSON data as a std::string
-		std::string jsonString = R"({"url": "http://192.168.1.9:8000/updates"})"; // Replace with your actual JSON string
+		std::string jsonString = R"({"url": "Update URL"})"; // Replace with your actual JSON string
 
 		// Parse the JSON response
 		Json::Value root;
